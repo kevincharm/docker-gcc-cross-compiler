@@ -1,41 +1,76 @@
 FROM ubuntu:14.04
 
-RUN apt-get update && apt-get install -y gcc wget build-essential
+# install dependencies
+RUN apt-get update                                  && \
+    # deps for gcc, binutils:
+    apt-get install -y gcc wget build-essential     && \
+    # deps for grub 2:
+    apt-get install -y autoconf flex bison
 
 # specify binutils/gcc version
 ENV DOWNLOAD_BINUTILS=binutils-2.26
-ENV DOWNLOAD_GCC=gcc-4.9.3
-
-# download binutils/gcc and its dependencies
-RUN wget -q http://ftp.gnu.org/gnu/binutils/$DOWNLOAD_BINUTILS.tar.gz
-RUN tar -xzf $DOWNLOAD_BINUTILS.tar.gz
-
-RUN wget -q ftp://ftp.gnu.org/gnu/gcc/$DOWNLOAD_GCC/$DOWNLOAD_GCC.tar.gz
-RUN tar -xzf $DOWNLOAD_GCC.tar.gz
-
-RUN cd /$DOWNLOAD_GCC && contrib/download_prerequisites
+ENV DOWNLOAD_GCC=gcc-5.5.0
+ENV DOWNLOAD_GRUB=grub-2.02
+ENV DOWNLOAD_XORRISO=xorriso-1.4.8
 
 # specify TARGET
 ENV TARGET=i686-elf
 ENV PREFIX=/usr/local
 
-# build binutils
-RUN mkdir -p /srv/build_binutils
-WORKDIR /srv/build_binutils
-RUN /$DOWNLOAD_BINUTILS/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot --disable-nls --disable-werror
-RUN make
-RUN make install
+# binutils
+RUN wget -q http://ftp.gnu.org/gnu/binutils/$DOWNLOAD_BINUTILS.tar.gz    && \
+    tar -xzf $DOWNLOAD_BINUTILS.tar.gz                                   && \
+    mkdir -p /srv/build_binutils                                         && \
+    cd /srv/build_binutils                                               && \
+    /$DOWNLOAD_BINUTILS/configure --target=$TARGET --prefix="$PREFIX"       \
+    --with-sysroot --disable-multilib --disable-nls --disable-werror     && \
+    make                                                                 && \
+    make install                                                         && \
+    rm -r /$DOWNLOAD_BINUTILS /srv/build_binutils
 
-# build gcc
-RUN mkdir -p /srv/build_gcc
-WORKDIR /srv/build_gcc
-RUN /$DOWNLOAD_GCC/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --without-headers
-RUN make all-gcc
-RUN make all-target-libgcc
-RUN make install-gcc
-RUN make install-target-libgcc
+# gcc
+RUN wget -q ftp://ftp.gnu.org/gnu/gcc/$DOWNLOAD_GCC/$DOWNLOAD_GCC.tar.gz && \
+    tar -xzf $DOWNLOAD_GCC.tar.gz                                        && \
+    cd /$DOWNLOAD_GCC && contrib/download_prerequisites                  && \
+    mkdir -p /srv/build_gcc                                              && \
+    cd /srv/build_gcc                                                    && \
+    /$DOWNLOAD_GCC/configure --target=$TARGET --prefix="$PREFIX"            \
+    --disable-multilib --disable-nls                                        \
+    --enable-languages=c,c++ --without-headers                           && \
+    make all-gcc                                                         && \
+    make all-target-libgcc                                               && \
+    make install-gcc                                                     && \
+    make install-target-libgcc                                           && \
+    rm -r /$DOWNLOAD_GCC /srv/build_gcc
 
-# remove big files
-RUN rm -r /$DOWNLOAD_BINUTILS /$DOWNLOAD_GCC /srv/build_binutils /srv/build_gcc
+# xorriso
+RUN wget -q ftp://ftp.gnu.org/gnu/xorriso/$DOWNLOAD_XORRISO.tar.gz       && \
+    tar -xzf $DOWNLOAD_XORRISO.tar.gz                                    && \
+    cd /$DOWNLOAD_XORRISO                                                && \
+    ./configure --prefix=/usr                                            && \
+    make                                                                 && \
+    make install                                                         && \
+    rm -r /$DOWNLOAD_XORRISO
+
+# grub 2
+RUN wget -q ftp://ftp.gnu.org/gnu/grub/$DOWNLOAD_GRUB.tar.gz             && \
+    tar -xzf $DOWNLOAD_GRUB.tar.gz                                       && \
+    cd /$DOWNLOAD_GRUB                                                   && \
+    export PYTHON=python3                                                && \
+    ./autogen.sh                                                         && \
+    mkdir -p /srv/build_grub                                             && \
+    cd /srv/build_grub                                                   && \
+    /$DOWNLOAD_GRUB/configure --disable-werror TARGET_CC=$TARGET-gcc        \
+    TARGET_OBJCOPY=$TARGET-objcopy TARGET_STRIP=$TARGET-strip               \
+    TARGET_NM=$TARGET-nm TARGET_RANLIB=$TARGET-ranlib                       \
+    --target=$TARGET                                                     && \
+    make                                                                 && \
+    make install                                                         && \
+    rm -r /$DOWNLOAD_GRUB /srv/build_grub
+
+# cleanup
+RUN apt-get clean autoclean                                              && \
+    apt-get autoremove -y                                                && \
+    rm -rf /var/lib/apt /var/lib/dpkg /var/lib/cache /var/lib/log
 
 WORKDIR /
