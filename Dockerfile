@@ -1,11 +1,14 @@
-FROM ubuntu:14.04
+FROM ubuntu:18.04
 
 # install dependencies
 RUN apt-get update                                  && \
     # deps for gcc, binutils:
     apt-get install -y gcc wget build-essential     && \
     # deps for grub 2:
-    apt-get install -y autoconf flex bison
+    apt-get install -y autoconf flex bison	    && \
+    apt-get install -y curl
+RUN curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
+    apt-get install -y nodejs
 
 # specify binutils/gcc version
 ENV DOWNLOAD_BINUTILS=binutils-2.26
@@ -67,6 +70,12 @@ RUN wget -q ftp://ftp.gnu.org/gnu/grub/$DOWNLOAD_GRUB.tar.gz             && \
     make                                                                 && \
     make install                                                         && \
     rm -r /$DOWNLOAD_GRUB /srv/build_grub
+
+# yarn
+RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -                                && \
+    echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list    && \
+    apt-get update                                                                                   && \
+    apt-get install yarn
 
 # cleanup
 RUN apt-get clean autoclean                                              && \
