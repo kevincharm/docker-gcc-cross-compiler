@@ -7,6 +7,7 @@ RUN apt-get update                                  && \
     # deps for grub 2:
     apt-get install -y autoconf flex bison	    && \
     apt-get install -y curl
+RUN apt-get install -y git
 RUN curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
     apt-get install -y nodejs
 
